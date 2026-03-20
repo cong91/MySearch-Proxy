@@ -108,12 +108,12 @@ def _snippet(item: dict[str, Any]) -> str:
 def _result_lines(items: list[dict[str, Any]], heading: str) -> list[str]:
     lines = [heading, ""]
     if not items:
-        lines.append("- 无结果")
+        lines.append("- No results")
         lines.append("")
         return lines
 
     for index, item in enumerate(items, start=1):
-        title = (item.get("title") or item.get("url") or f"结果 {index}").strip()
+        title = (item.get("title") or item.get("url") or f"Result {index}").strip()
         url = (item.get("url") or "").strip()
         snippet = _snippet(item)
         meta_bits: list[str] = []
@@ -264,7 +264,7 @@ def _render_research(payload: dict[str, Any]) -> str:
     pages = payload.get("pages") or []
     lines.extend(["## Pages", ""])
     if not pages:
-        lines.append("- 无抓取页面")
+        lines.append("- No extracted pages")
         lines.append("")
     else:
         for index, page in enumerate(pages, start=1):

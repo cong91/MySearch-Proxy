@@ -1,6 +1,6 @@
 # MySearch
 
-[中文说明](./README.md) · [Back to repo](../README_EN.md)
+[Back to repo](../README_EN.md)
 
 `MySearch` is the installable search MCP inside this repository.
 

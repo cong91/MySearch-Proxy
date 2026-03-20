@@ -1,120 +1,117 @@
 # MySearch Skill
 
-[English Guide](./README_EN.md) · [返回仓库](../README.md)
+[Back to repo](../README_EN.md)
 
-`skill/` 这一层的目标很简单：
+The purpose of `skill/` is simple:
 
-- 让 `Codex` 知道怎么安装和怎么使用 `MySearch`
-- 让 `Claude Code` 在拿到仓库链接时，也能顺着文档把 MCP 安装好并开始用
+- teach `Codex` how to install and use `MySearch`
+- let `Claude Code` follow a repo link and still install the MCP correctly
 
-这里不是单独的 MCP 实现目录。
+This is not the standalone MCP implementation directory.
 
-这里更像一份“给 AI 看的安装与使用说明书”：
+Think of it as the human and AI readable install-and-use guide:
 
-- `README.md`
-  - 先告诉 AI 怎么装
-  - 再告诉 AI 怎么验收
+- `README_EN.md`
+  - explains how to install
+  - explains how to verify
 - `SKILL.md`
-  - 再告诉 AI 装好之后该怎么调 MySearch
+  - explains how to use MySearch after installation
 
-## 如果你是用户，最简单的用法
+## If you are a user, the easiest way to use this
 
-直接把下面这句话发给 `Codex` 或 `Claude Code`：
-
-```text
-请打开这个仓库里的 skill/README.md 和 skill/SKILL.md，按文档为我安装 MySearch；如果 MCP 还没注册，就在仓库根目录执行 install.sh；安装完成后跑 health 和 smoke test，并告诉我结果。
-```
-
-如果你发的是 GitHub 链接，也可以直接这样说：
+Send this to `Codex` or `Claude Code`:
 
 ```text
-请阅读 https://github.com/skernelx/MySearch-Proxy/tree/main/skill 里的 README 和 SKILL，帮我自动安装并验证 MySearch。
+Open skill/README_EN.md and skill/SKILL.md from this repository, install MySearch for me, run install.sh from the repo root if the MCP is not registered yet, then run the health check and smoke tests and tell me the result.
 ```
 
-如果你手里已经有一个部署好的 `MySearch streamableHTTP` 地址，也可以直接这样发：
+If you only want to share the GitHub link, you can also say:
 
 ```text
-请把这个 MySearch MCP 地址注册到 Codex 并验证可用性：http://127.0.0.1:8000/mcp。如果需要鉴权，请使用环境变量 MYSEARCH_MCP_BEARER_TOKEN。
+Please read https://github.com/skernelx/MySearch-Proxy/tree/main/skill and automatically install and verify MySearch for me.
 ```
 
-## 如果你是 AI 助手，收到这个目录后应该怎么做
+If you already have a deployed `MySearch streamableHTTP` endpoint, you can also
+send this:
 
-### 1. 先判断这是 skill 入口，不是单独的 MCP 包
+```text
+Register this MySearch MCP URL in Codex and verify it for me: http://127.0.0.1:8000/mcp. If auth is required, use the MYSEARCH_MCP_BEARER_TOKEN environment variable.
+```
 
-当用户给你的是下面任意一种内容时：
+## If you are an AI assistant, what to do after receiving this directory
 
-- 仓库根链接
-- `skill/` 目录链接
-- 本地 `skill/` 路径
+### 1. Treat this as the install-and-use entry, not as a standalone MCP package
 
-默认把这里当成 MySearch 的“安装与使用入口”。
+If the user gives you any of these:
 
-### 2. 先安装 Codex skill
+- the repository URL
+- the `skill/` directory URL
+- a local `skill/` path
 
-如果当前环境是 `Codex`，优先执行：
+default to using this folder as the MySearch onboarding entry point.
+
+### 2. Install the Codex skill first
+
+If the current environment is `Codex`, run:
 
 ```bash
 bash skill/scripts/install_codex_skill.sh
 ```
 
-如果目标目录已存在，需要覆盖：
+If the destination already exists and needs replacement:
 
 ```bash
 bash skill/scripts/install_codex_skill.sh --force
 ```
 
-安装完成后提醒用户：
+After installation, remind the user to:
 
-- 重启 `Codex`
+- restart `Codex`
 
-### 3. 再确认 MySearch MCP 是否已安装
+### 3. Then ensure the MySearch MCP is installed
 
-如果用户给你的是源码仓库，继续走本地安装：
+If the user gave you the source repository, follow the local install path:
 
-在仓库根目录执行：
+From the repository root:
 
 ```bash
 python3 -m venv venv
 ```
 
-优先把配置直接写进宿主 config：
-
-- `Codex`：`~/.codex/config.toml` 的 `mcp_servers.mysearch.env`
-- `Claude Code`：注册 MCP 时把 `MYSEARCH_*` 注入 env
-
-只有在本地单仓调试、又不方便改宿主配置时，才准备：
+If the config file is not prepared yet:
 
 ```bash
 cp mysearch/.env.example mysearch/.env
 ```
 
-再按需填写：
+Then fill the environment for the current deployment:
 
 - `MYSEARCH_TAVILY_*`
 - `MYSEARCH_FIRECRAWL_*`
-- 可选 `MYSEARCH_XAI_*`
+- optional `MYSEARCH_XAI_*`
 
-然后执行：
+Then run:
 
 ```bash
 ./install.sh
 ```
 
-说明：
+Notes:
 
-- `skill/` 负责让 AI 知道怎么用
-- 根目录 `install.sh` 负责把 `mysearch` MCP 注册进 `Codex` / `Claude Code`
-- 两者互补，不要只做其中一件
+- `skill/` teaches the assistant how to use MySearch
+- the root `install.sh` registers the `mysearch` MCP for `Codex` / `Claude Code`
+- both parts matter
 
-如果用户给你的不是源码仓库，而是已经部署好的 `MySearch streamableHTTP` URL，
-优先按远程 MCP 处理，不要再让用户本地执行 `./install.sh`：
+If the user gives you a deployed `MySearch streamableHTTP` URL instead of the
+source repository, treat it as a remote MCP and do not ask the user to run
+`./install.sh` locally:
 
 ```bash
 codex mcp add mysearch --url http://127.0.0.1:8000/mcp
 codex mcp get mysearch
 ```
 
-如果远程入口需要 Bearer Token：
+If the endpoint requires bearer auth:
 
 ```bash
 export MYSEARCH_MCP_BEARER_TOKEN=your-token
@@ -124,30 +121,31 @@ codex mcp add mysearch \
 codex mcp get mysearch
 ```
 
-这里要分清：
+Keep the paths separate:
 
-- 本地仓库安装 = `stdio`
-- 远程 URL 接入 = `streamableHTTP`
-- `OpenClaw` 走的是 `openclaw/` bundle，不依赖这条远程 MCP URL
+- local repository install = `stdio`
+- remote URL attach = `streamableHTTP`
+- the `openclaw/` bundle does not depend on this remote MCP URL
 
-## 最推荐的 provider 接法
+## Recommended provider path
 
-默认推荐不是手动直填所有官方 key，而是：
+The default recommendation is not to hand-fill every official provider key.
+The recommended setup is:
 
-- 先用
+- use
   [skernelx/tavily-key-generator](https://github.com/skernelx/tavily-key-generator)
-  提供 Tavily / Firecrawl provider 或聚合 API
-- 再让 MySearch 接这层统一入口
+  as the Tavily / Firecrawl provider layer or aggregation API
+- let MySearch connect to that normalized layer
 
-这样做的好处：
+Why this is better:
 
-- 对公开项目更友好
-- 对团队共用更稳
-- 更适合让 AI 直接安装和复用
+- better for public projects
+- better for team reuse
+- better for AI-driven installation flows
 
-## 安装完成后怎么验收
+## How to verify the installation
 
-优先按这个顺序：
+Use this order:
 
 ```bash
 codex mcp list
@@ -157,53 +155,54 @@ python skill/scripts/check_mysearch.py --web-query "OpenAI latest announcements"
 python skill/scripts/check_mysearch.py --docs-query "OpenAI Responses API docs"
 ```
 
-如果配置了 X / Social，再补：
+If X / Social is configured, add:
 
 ```bash
 python skill/scripts/check_mysearch.py --social-query "Model Context Protocol"
 ```
 
-如果要测正文抓取：
+If you want to test extraction too:
 
 ```bash
 python skill/scripts/check_mysearch.py \
   --extract-url "https://www.anthropic.com/news/model-context-protocol"
 ```
 
-## Claude Code 怎么理解这份 skill
+## How Claude Code should interpret this skill
 
-这个目录里目前提供的是：
+This folder currently provides:
 
-- 给 `Codex` 的本地 skill 安装脚本
-- 给 `Codex / Claude Code` 共用的使用规则和安装说明
+- a local skill installer for `Codex`
+- shared usage and installation instructions for both `Codex` and `Claude Code`
 
-也就是说：
+That means:
 
-- `Codex` 可以直接安装本地 skill
-- `Claude Code` 即使没有单独的 skill 安装脚本，也可以通过阅读这份
-  `README.md` 和 `SKILL.md` 完成 MCP 安装、验收和后续使用
+- `Codex` can install the local skill directly
+- `Claude Code` can still read this `README_EN.md` and `SKILL.md`, install the
+  MCP, verify it, and then follow the same usage rules
 
-## 安装完成后 AI 应该怎么用 MySearch
+## How the AI should use MySearch after installation
 
-装完以后，不要回到 generic web search。
+After installation, do not fall back to generic web search by default.
 
-优先顺序应该是：
+Preferred order:
 
-1. 先看 `mysearch_health`
-2. 默认从 `search` 起手
-3. 需要正文时用 `extract_url`
-4. 需要小型研究包时用 `research`
-5. 只有 MySearch 不可用或用户明确要求时，才回退到别的搜索工具
+1. check `mysearch_health`
+2. start from `search`
+3. use `extract_url` when page content is needed
+4. use `research` when a lightweight research pack is needed
+5. only fall back to other search tools if MySearch is unavailable or the user
+   explicitly asks for another source
 
-更完整的调用规则见：
+For the full behavior rules, see:
 
 - [SKILL.md](./SKILL.md)
 
-## 相关文档
+## Related docs
 
-- 仓库总览：
-  [../README.md](../README.md)
-- MCP 文档：
-  [../mysearch/README.md](../mysearch/README.md)
-- Proxy 控制台：
-  [../proxy/README.md](../proxy/README.md)
+- Repository overview:
+  [../README_EN.md](../README_EN.md)
+- MCP docs:
+  [../mysearch/README_EN.md](../mysearch/README_EN.md)
+- Proxy console:
+  [../proxy/README_EN.md](../proxy/README_EN.md)

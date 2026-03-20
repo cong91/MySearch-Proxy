@@ -1,5 +1,5 @@
 """
-SQLite 数据库管理
+SQLite database management.
 """
 import os
 import random
@@ -106,7 +106,7 @@ def init_db():
     """)
     _ensure_service_columns(conn)
     _ensure_usage_columns(conn)
-    # 当前产品策略：关闭 token 级调用限流，统一把历史限额字段归零。
+    # Current product policy: disable token-level rate limiting and normalize legacy quota fields back to zero.
     conn.execute(
         """
         UPDATE tokens
@@ -264,7 +264,7 @@ def delete_key(key_id):
 
 
 def import_keys_from_text(text, service="tavily"):
-    """从批量文本导入不同服务的 key。"""
+    """Import keys for different services from bulk text input."""
     service = normalize_service(service)
     pattern = KEY_PATTERNS[service]
     count = 0
@@ -402,7 +402,7 @@ def log_usage(token_id, api_key_id, endpoint, success, latency_ms, service="tavi
 
 
 def get_usage_stats(token_id=None, service=None):
-    """获取用量统计。"""
+    """Return usage statistics."""
     conn = get_conn()
     try:
         now = datetime.now(timezone.utc)
@@ -439,5 +439,5 @@ def get_usage_stats(token_id=None, service=None):
 
 
 def check_quota(token_id, hourly_limit, daily_limit, monthly_limit, service=None):
-    """保留兼容接口：当前版本不对 token 做调用限额拦截。"""
+    """Compatibility endpoint retained: the current version does not enforce token-level call quotas."""
     return True, ""

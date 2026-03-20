@@ -1,5 +1,5 @@
 """
-按服务维度管理 API Key 轮询池
+Manage round-robin API key pools per service.
 """
 import threading
 
@@ -23,7 +23,7 @@ class ServiceKeyPool:
                 self._initialized.add(item)
 
     def get_next_key(self, service="tavily"):
-        """Round-robin 返回某个服务下一个可用 key。"""
+        """Return the next usable key for a service via round-robin selection."""
         service = normalize_service(service)
         if service not in self._initialized:
             self.reload(service)
@@ -38,7 +38,7 @@ class ServiceKeyPool:
             return key
 
     def report_result(self, service, key_id, success):
-        """记录使用结果，失败 3 次自动禁用并从对应池中移除。"""
+        """Record usage results. After 3 consecutive failures, disable the key and remove it from the pool."""
         service = normalize_service(service)
         update_key_usage(key_id, success)
         if not success:

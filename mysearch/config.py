@@ -1,4 +1,4 @@
-"""MySearch 通用配置。"""
+"""Shared configuration for MySearch."""
 
 from __future__ import annotations
 
@@ -96,7 +96,7 @@ def _load_codex_mcp_env() -> None:
 
 
 def _load_dotenv() -> None:
-    # .env 只作为本地单仓调试兜底，不覆盖宿主已注入的配置。
+    # `.env` is only a local single-repo fallback for debugging and must not override host-injected configuration.
     for env_path in (MODULE_DIR / ".env", ROOT_DIR / ".env"):
         _load_env_file(env_path)
 

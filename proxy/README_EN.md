@@ -1,6 +1,6 @@
 # MySearch Proxy Console
 
-[中文说明](./README.md) · [Back to repo](../README_EN.md)
+[Back to repo](../README_EN.md)
 
 `proxy/` is the console and gateway layer inside `MySearch Proxy`.
 

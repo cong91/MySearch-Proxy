@@ -1,4 +1,4 @@
-"""MySearch provider client 和自动路由。"""
+"""MySearch provider client and automatic routing logic."""
 
 from __future__ import annotations
 
@@ -45,7 +45,7 @@ ProviderName = Literal["auto", "tavily", "firecrawl", "exa", "xai"]
 
 
 class MySearchError(RuntimeError):
-    """MySearch 调用失败。"""
+    """MySearch call failed."""
 
 
 class MySearchHTTPError(MySearchError):
@@ -629,7 +629,7 @@ class MySearchClient:
 
         route_reason = decision.reason
         if result.get("provider") == "hybrid" and resolved_strategy in {"balanced", "verify", "deep"}:
-            route_reason = f"{route_reason}；strategy={resolved_strategy} 已启用 Tavily + Firecrawl 交叉检索"
+            route_reason = f"{route_reason}; strategy={resolved_strategy} enables Tavily + Firecrawl cross-verification"
         fallback = result.get("fallback")
         if isinstance(fallback, dict):
             fallback_from = str(fallback.get("from", "")).strip()
@@ -932,8 +932,8 @@ class MySearchClient:
                 else "single-provider",
             },
             "notes": [
-                "默认用 Tavily 做发现，Firecrawl 做正文抓取，X 搜索走 xAI Responses API",
-                "如果某个 provider 没配 key，会保留错误并尽量返回其余部分",
+                "Use Tavily for discovery by default, Firecrawl for content extraction, and xAI Responses API for X search",
+                "If one provider is missing a key, preserve the error and still return the remaining usable parts when possible",
             ],
         }
 
@@ -980,43 +980,43 @@ class MySearchClient:
             if provider == "tavily":
                 return RouteDecision(
                     provider="tavily",
-                    reason="显式指定 Tavily",
+                    reason="Tavily explicitly requested",
                     tavily_topic="news" if mode == "news" else "general",
                 )
             if provider == "firecrawl":
                 return RouteDecision(
                     provider="firecrawl",
-                    reason="显式指定 Firecrawl",
+                    reason="Firecrawl explicitly requested",
                     firecrawl_categories=self._firecrawl_categories(mode, intent),
                 )
             if provider == "exa":
                 return RouteDecision(
                     provider="exa",
-                    reason="显式指定 Exa",
+                    reason="Exa explicitly requested",
                 )
             if provider == "xai":
                 return RouteDecision(
                     provider="xai",
-                    reason="显式指定 xAI/X 搜索",
+                    reason="xAI / X search explicitly requested",
                     sources=normalized_sources,
                 )
 
         if normalized_sources == ["web", "x"] or (
             "x" in normalized_sources and "web" in normalized_sources
         ):
-            return RouteDecision(provider="hybrid", reason="同时请求网页和 X 结果")
+            return RouteDecision(provider="hybrid", reason="Requesting both web and X results in the same query")
 
         if mode == "social" or "x" in normalized_sources:
             return RouteDecision(
                 provider="xai",
-                reason="社交舆情 / X 搜索更适合走 xAI",
+                reason="Social sentiment / X search is better routed through xAI",
                 sources=["x"],
             )
 
         if allowed_x_handles or excluded_x_handles:
             return RouteDecision(
                 provider="xai",
-                reason="检测到 X handle 过滤条件",
+                reason="Detected an X-handle filter in the request",
                 sources=["x"],
             )
 
@@ -1027,17 +1027,17 @@ class MySearchClient:
                 ):
                     return RouteDecision(
                         provider="exa",
-                        reason="Firecrawl 未配置，文档正文查询回退到 Exa",
+                        reason="Firecrawl is not configured; falling back to Exa for docs/content queries",
                     )
                 return RouteDecision(
                     provider="firecrawl",
-                    reason="文档正文查询优先走 Firecrawl",
+                    reason="Prefer Firecrawl for docs/content queries",
                     firecrawl_categories=self._firecrawl_categories(mode, intent),
                 )
             if self._provider_can_serve(self.config.tavily):
                 return RouteDecision(
                     provider="tavily",
-                    reason="文档类查询先用 Tavily 做官方页面发现，正文再交给 Firecrawl",
+                    reason="Use Tavily first to discover the official page, then pass content extraction to Firecrawl for docs-oriented queries",
                     tavily_topic="general",
                 )
             if not self._provider_can_serve(self.config.firecrawl) and self._provider_can_serve(
@@ -1045,11 +1045,11 @@ class MySearchClient:
             ):
                 return RouteDecision(
                     provider="exa",
-                    reason="Firecrawl 未配置，文档类查询回退到 Exa",
+                    reason="Firecrawl is not configured; falling back to Exa for docs-oriented queries",
                 )
             return RouteDecision(
                 provider="firecrawl",
-                reason="文档 / GitHub / PDF 内容优先走 Firecrawl",
+                reason="Prefer Firecrawl for docs, GitHub, and PDF content",
                 firecrawl_categories=self._firecrawl_categories(mode, intent),
             )
 
@@ -1059,11 +1059,11 @@ class MySearchClient:
             ):
                 return RouteDecision(
                     provider="exa",
-                    reason="Firecrawl 未配置，正文查询回退到 Exa",
+                    reason="Firecrawl is not configured; falling back to Exa for content-heavy queries",
                 )
             return RouteDecision(
                 provider="firecrawl",
-                reason="请求里需要正文内容，优先用 Firecrawl search + scrape",
+                reason="The request needs page content, so prefer Firecrawl search + scrape",
                 firecrawl_categories=self._firecrawl_categories(mode, intent),
             )
 
@@ -1073,11 +1073,11 @@ class MySearchClient:
             ):
                 return RouteDecision(
                     provider="exa",
-                    reason="Tavily 未配置，新闻 / 状态类查询回退到 Exa",
+                    reason="Tavily is not configured; falling back to Exa for news/status queries",
                 )
             return RouteDecision(
                 provider="tavily",
-                reason="状态 / 新闻类查询默认走 Tavily",
+                reason="Use Tavily by default for status / news queries",
                 tavily_topic="news",
             )
 
@@ -1088,17 +1088,17 @@ class MySearchClient:
                 ):
                     return RouteDecision(
                         provider="exa",
-                        reason="Firecrawl 未配置，resource 正文查询回退到 Exa",
+                        reason="Firecrawl is not configured; falling back to Exa for resource/content queries",
                     )
                 return RouteDecision(
                     provider="firecrawl",
-                    reason="resource / docs 正文查询优先走 Firecrawl",
+                    reason="Prefer Firecrawl for resource / docs content queries",
                     firecrawl_categories=self._firecrawl_categories("docs", intent),
                 )
             if self._provider_can_serve(self.config.tavily):
                 return RouteDecision(
                     provider="tavily",
-                    reason="resource / docs 查询先用 Tavily 做页面发现，正文再交给 Firecrawl",
+                    reason="Use Tavily first for page discovery, then Firecrawl for content in resource / docs queries",
                     tavily_topic="general",
                 )
             if not self._provider_can_serve(self.config.firecrawl) and self._provider_can_serve(
@@ -1106,11 +1106,11 @@ class MySearchClient:
             ):
                 return RouteDecision(
                     provider="exa",
-                    reason="Firecrawl 未配置，resource / docs 类查询回退到 Exa",
+                    reason="Firecrawl is not configured; falling back to Exa for resource / docs queries",
                 )
             return RouteDecision(
                 provider="firecrawl",
-                reason="resource / docs 类查询优先走 Firecrawl",
+                reason="Prefer Firecrawl for resource / docs queries",
                 firecrawl_categories=self._firecrawl_categories("docs", intent),
             )
 
@@ -1120,11 +1120,11 @@ class MySearchClient:
             ):
                 return RouteDecision(
                     provider="exa",
-                    reason="Tavily 未配置，research 发现阶段回退到 Exa",
+                    reason="Tavily is not configured; falling back to Exa for the discovery stage of research mode",
                 )
             return RouteDecision(
                 provider="tavily",
-                reason="research 模式先用 Tavily 做发现，再按策略决定是否扩展验证",
+                reason="In research mode, start with Tavily for discovery, then expand verification depending on strategy",
                 tavily_topic="general",
             )
 
@@ -1133,12 +1133,12 @@ class MySearchClient:
         ):
             return RouteDecision(
                 provider="exa",
-                reason="Tavily 未配置，普通网页检索回退到 Exa",
+                reason="Tavily is not configured; falling back to Exa for general web search",
             )
 
         return RouteDecision(
             provider="tavily",
-            reason="普通网页检索默认走 Tavily",
+            reason="Use Tavily by default for general web search",
             tavily_topic="general",
         )
 
@@ -2607,13 +2607,13 @@ class MySearchClient:
             "tutorial",
             "vs",
             "with",
-            "价格",
-            "发布",
-            "对比",
-            "接口",
-            "教程",
-            "文档",
-            "更新日志",
+            "pricing",
+            "release",
+            "comparison",
+            "API",
+            "tutorial",
+            "docs",
+            "changelog",
         }
         tokens: list[str] = []
         for token in re.findall(r"[a-z0-9][a-z0-9._-]{1,}", query.lower()):
@@ -3093,10 +3093,10 @@ class MySearchClient:
             "news",
             "today",
             "this week",
-            "刚刚",
-            "最新",
-            "新闻",
-            "动态",
+            "just now",
+            "latest",
+            "news",
+            "updates",
         ]
         return any(keyword in query_lower for keyword in keywords)
 
@@ -3108,10 +3108,10 @@ class MySearchClient:
             "release",
             "roadmap",
             "version",
-            "版本",
-            "发布",
-            "进展",
-            "现状",
+            "version",
+            "release",
+            "progress",
+            "current status",
         ]
         return any(keyword in query_lower for keyword in keywords)
 
@@ -3123,10 +3123,10 @@ class MySearchClient:
             "comparison",
             "pros and cons",
             "pros cons",
-            "对比",
-            "比较",
-            "区别",
-            "哪个好",
+            "comparison",
+            "compare",
+            "difference",
+            "which is better",
         ]
         return any(keyword in query_lower for keyword in keywords)
 
@@ -3136,10 +3136,10 @@ class MySearchClient:
             "guide",
             "tutorial",
             "walkthrough",
-            "教程",
-            "怎么",
-            "如何",
-            "入门",
+            "tutorial",
+            "how to",
+            "how",
+            "getting started",
         ]
         return any(keyword in query_lower for keyword in keywords)
 
@@ -3153,10 +3153,10 @@ class MySearchClient:
             "readme",
             "github",
             "manual",
-            "文档",
-            "接口",
-            "价格",
-            "更新日志",
+            "docs",
+            "API",
+            "pricing",
+            "changelog",
         ]
         return any(keyword in query_lower for keyword in keywords)
 
@@ -3167,11 +3167,11 @@ class MySearchClient:
             "analysis",
             "trend",
             "ecosystem",
-            "研究",
-            "原因",
-            "影响",
-            "趋势",
-            "生态",
+            "research",
+            "reason",
+            "impact",
+            "trend",
+            "ecosystem",
         ]
         return any(keyword in query_lower for keyword in keywords)
 

@@ -1,5 +1,5 @@
 """
-多服务 API Proxy — FastAPI 主服务
+Multi-service API proxy — FastAPI main service.
 """
 import asyncio
 import hashlib
@@ -278,7 +278,7 @@ def verify_admin(request: Request):
 
 
 def extract_token(request: Request, body: dict = None):
-    """从请求中提取代理 token。"""
+    """Extract the proxy token from the request."""
     auth = request.headers.get("Authorization", "")
     if auth.startswith("Bearer "):
         return auth[7:]
@@ -740,7 +740,7 @@ async def sync_usage_cache(force=False, key_id=None, service=None):
             "skipped": len(rows),
             "errors": 0,
             "supported": False,
-            "detail": "Exa 当前未接入官方额度同步",
+            "detail": "Official quota sync is not currently supported for Exa",
         }
 
     rows = []
@@ -784,13 +784,13 @@ def build_usage_sync_meta_for_dashboard(service, active_keys):
             "skipped": len(active_keys),
             "errors": 0,
             "stale_keys": 0,
-            "detail": "Exa 实时额度暂时无法查询",
+            "detail": "Real-time Exa quota is not currently available",
         }
 
     stale_keys = sum(1 for key in active_keys if is_usage_sync_stale(key))
-    detail = "已启用后台同步，页面优先快速返回。"
+    detail = "Background sync is enabled so the dashboard can return quickly."
     if stale_keys > 0:
-        detail = f"检测到 {stale_keys} 个 Key 额度信息较旧，后台会按节流策略刷新。"
+        detail = f"Detected {stale_keys} keys with stale quota data. Background refresh will follow the configured throttling policy."
     return {
         "supported": True,
         "auto_sync": False,
@@ -828,7 +828,7 @@ async def schedule_background_usage_sync(service, active_keys):
             try:
                 await sync_usage_cache(force=False, service=service)
             except Exception:
-                # 后台同步失败不影响页面主流程，下次节流窗口后再尝试。
+                # Background sync failures must not block the main dashboard flow. Retry again after the next throttling window.
                 pass
             finally:
                 reset_stats_cache()
@@ -1062,7 +1062,7 @@ async def parse_json_body(request):
 
 
 def forward_raw_response(resp):
-    """尽量保留上游返回格式，避免把非 JSON Firecrawl 响应再包一层。"""
+    """Preserve the upstream response format whenever possible instead of wrapping non-JSON Firecrawl responses again."""
     content_type = resp.headers.get("content-type", "")
     return Response(
         content=resp.content,
@@ -1637,14 +1637,14 @@ def normalize_social_search_response(query, payload, max_results, *, model=None)
     }
 
 
-# ═══ 启动 ═══
+# === Startup ===
 
 @app.on_event("startup")
 def startup():
     db.init_db()
 
 
-# ═══ Tavily 代理端点 ═══
+# === Tavily proxy endpoints ===
 
 @app.post("/api/search")
 @app.post("/api/extract")
@@ -1675,7 +1675,7 @@ async def proxy_tavily(request: Request):
         raise HTTPException(status_code=502, detail=str(exc))
 
 
-# ═══ Firecrawl 代理端点 ═══
+# === Firecrawl proxy endpoints ===
 
 @app.api_route("/firecrawl/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE"])
 async def proxy_firecrawl(path: str, request: Request):
@@ -1755,7 +1755,7 @@ async def proxy_exa_search(request: Request):
         raise HTTPException(status_code=502, detail=str(exc))
 
 
-# ═══ Social / X 代理端点 ═══
+# === Social / X proxy endpoints ===
 
 @app.get("/social/health")
 async def social_health():
@@ -1872,7 +1872,7 @@ async def proxy_social_search(request: Request):
     )
 
 
-# ═══ 控制台 ═══
+# === Console ===
 
 @app.get("/", response_class=HTMLResponse)
 async def console(request: Request):
@@ -1886,7 +1886,7 @@ async def console(request: Request):
     )
 
 
-# ═══ 管理 API ═══
+# === Admin API ===
 
 @app.get("/api/session")
 async def get_session(request: Request, _=Depends(verify_admin)):

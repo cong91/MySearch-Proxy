@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""MySearch 本地健康检查与烟测脚本。"""
+"""Local health-check and smoke-test script for MySearch."""
 
 from __future__ import annotations
 
@@ -58,7 +58,7 @@ def parse_codex_mysearch_env(config_text: str) -> dict[str, str]:
 
 
 def load_codex_mcp_env() -> None:
-    """在干净仓库里也尽量复用 Codex 已注册的 mysearch MCP 环境变量。"""
+    """Reuse environment variables from an already-registered Codex mysearch MCP whenever possible, even in a clean repository."""
     if any(os.getenv(name) for name in ("MYSEARCH_PROXY_BASE_URL", "MYSEARCH_TAVILY_API_KEY")):
         return
 

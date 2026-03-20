@@ -48,52 +48,52 @@ metadata:
       - social
 ---
 
-# MySearch For OpenClaw
+# MySearch for OpenClaw
 
-MySearch 是给 OpenClaw 用的默认搜索 skill。
+MySearch is the default search skill for OpenClaw.
 
-如果你是 AI 助手，并且用户只是给了仓库地址或 `openclaw/` 目录：
+If you are an AI assistant and the user only gives you the repository URL or the `openclaw/` directory:
 
-- 先打开 `openclaw/README.md`
-- 先按 `README` 完成安装与验收
-- 再回到这个 `SKILL.md` 执行搜索规则和调用策略
+- open `openclaw/README.md` first
+- follow the README to install and verify the skill
+- then come back to this `SKILL.md` for usage rules and calling strategy
 
-它把 Tavily、Firecrawl、Exa、X / Social 聚合成同一个入口，并且按任务类型自动路由：
+It aggregates Tavily, Firecrawl, Exa, and X / Social behind one entry point and routes by task type automatically:
 
-- 最新网页、普通实时搜索：优先 Tavily
-- Tavily 结果不够时，网页发现可补 Exa
-- 文档、GitHub、pricing、changelog、PDF：优先 Firecrawl
-- X / Twitter / 社交舆情：优先 xAI 或 compatible `/social/search`
-- 单页正文抓取：优先 Firecrawl，失败或空正文时回退 Tavily extract
+- latest web pages and normal real-time web search: prefer Tavily
+- if Tavily discovery is not enough, Exa can supplement web discovery
+- docs, GitHub, pricing, changelog, and PDFs: prefer Firecrawl
+- X / Twitter / social sentiment: prefer xAI or a compatible `/social/search`
+- single-page content extraction: prefer Firecrawl, then fall back to Tavily extract if content is empty or extraction fails
 
-## 最小配置
+## Minimal Configuration
 
-Hub 版 skill 已经自带 runtime，不需要在安装时再下载远程代码。
+The Hub version of this skill already includes its own runtime, so no remote code download is required during installation.
 
-推荐最小配置：
+Recommended minimal configuration:
 
 - `MYSEARCH_PROXY_BASE_URL`
 - `MYSEARCH_PROXY_API_KEY`
 
-这两项配好后：
+With only those two values set:
 
-- `Tavily / Firecrawl / Exa` 会默认都走统一 proxy
-- 如果 proxy 同时接通了 `Social / X`，这一套 token 也会继续复用
-- OpenClaw 侧不需要再分别维护三套 provider token
+- `Tavily / Firecrawl / Exa` all go through the same unified proxy by default
+- if the proxy also supports `Social / X`, the same token is reused there too
+- OpenClaw does not need to maintain separate provider tokens
 
-兼容旧接法时，仍可直接填：
+Legacy direct mode is still supported:
 
 - `MYSEARCH_TAVILY_API_KEY`
 - `MYSEARCH_FIRECRAWL_API_KEY`
 
-可选增强：
+Optional enhancements:
 
 - `MYSEARCH_XAI_API_KEY`
 - `MYSEARCH_XAI_BASE_URL`
 - `MYSEARCH_XAI_SOCIAL_BASE_URL`
 - `MYSEARCH_XAI_SEARCH_MODE=official|compatible`
 
-如果没有 X / Social 配置，MySearch 仍然可以正常完成：
+If X / Social is not configured, MySearch still supports:
 
 - `web`
 - `news`
@@ -103,83 +103,31 @@ Hub 版 skill 已经自带 runtime，不需要在安装时再下载远程代码�
 - `extract`
 - `research`
 
-只有 `mode="social"` 或 `--include-social` 才会要求 X / Social。
+Only `mode="social"` or `--include-social` requires X / Social.
 
-## OpenClaw 配置建议
+## OpenClaw Configuration Guidance
 
-优先把统一 proxy 配进 OpenClaw skill env，而不是到处复制 provider key 或 shell 环境。
-`MYSEARCH_PROXY_BASE_URL` 只应该指向你自己部署或明确可信的 proxy。
-`mysearch_openclaw.py` 会优先读取 `openclaw.json` 里的
-`skills.entries.mysearch.env`，正式部署不需要依赖 `.env`。
+Prefer putting the unified proxy config into the OpenClaw skill env rather than copying provider keys into random shell environments.
+`MYSEARCH_PROXY_BASE_URL` should point only to a proxy you operate or explicitly trust.
+`mysearch_openclaw.py` prefers `skills.entries.mysearch.env` from `openclaw.json`, so a production deployment does not need to rely on `.env`.
 
-```json
-{
-  "skills": {
-    "entries": {
-      "mysearch": {
-        "enabled": true,
-        "env": {
-          "MYSEARCH_PROXY_BASE_URL": "https://search.hunters.works",
-          "MYSEARCH_PROXY_API_KEY": "mysp-..."
-        }
-      }
-    }
-  }
-}
-```
+## MySearch-First Rules
 
-如果你暂时没有统一 proxy，再退回旧接法：
+As long as `health` shows at least one usable search provider:
 
-```json
-{
-  "skills": {
-    "entries": {
-      "mysearch": {
-        "enabled": true,
-        "env": {
-          "MYSEARCH_TAVILY_API_KEY": "tvly-...",
-          "MYSEARCH_FIRECRAWL_API_KEY": "fc-..."
-        }
-      }
-    }
-  }
-}
-```
+- use MySearch first for external search tasks
+- do not use raw `web_search` as the main workflow
+- do not prefer the old Tavily-only skill first
 
-只有在你直接调试这个仓库工作树时，才建议复制 `.env.example` 到本地 `.env`。
-Hub 安装或正式 OpenClaw 部署优先用上面的 skill env 注入，不要默认把 secrets
-复制进已安装的 skill 目录。
+Only fall back when:
 
-本地调试示例：
+- MySearch does not have the minimum required configuration
+- the user explicitly asks for another search tool
+- MySearch returns conflicting results and you need extra verification
 
-```bash
-cp {baseDir}/.env.example {baseDir}/.env
-python3 {baseDir}/scripts/mysearch_openclaw.py health
-```
+## Strict Parameter Rules
 
-如果要把 skill 复制到别的 OpenClaw skills 目录，再执行：
-
-```bash
-bash {baseDir}/scripts/install_openclaw_skill.sh --install-to ~/.openclaw/skills/mysearch
-```
-
-## MySearch-First 规则
-
-只要 `health` 显示至少有可用搜索 provider：
-
-- 外部搜索任务优先走 MySearch
-- 不要把 raw `web_search` 当主流程
-- 不要优先走旧的 Tavily-only skill
-
-只有这些情况才回退：
-
-- MySearch 还没配置最小 key
-- 用户明确要求改用别的搜索方式
-- MySearch 返回冲突结果，需要额外复核
-
-## 严格参数规则
-
-`search` / `research` 的 `mode` 只允许：
+Allowed `mode` values for `search` / `research`:
 
 - `auto`
 - `web`
@@ -190,98 +138,56 @@ bash {baseDir}/scripts/install_openclaw_skill.sh --install-to ~/.openclaw/skills
 - `github`
 - `pdf`
 
-禁止事项：
+Do not:
 
-- 不要发明 `mode="hybrid"`
-- `hybrid` 只是某些返回结果形态，不是可传参数
-- 同时要网页和 X 时，优先：
+- invent `mode="hybrid"`
+- treat `hybrid` as an input mode; it is only a possible result shape
+- when both web and X are needed, prefer:
   - `--sources web,x`
-  - 或拆成 `social + news`
+  - or split into `social + news`
 
-## 常用命令
+## Common Commands
 
-### 健康检查
+### Health check
 
 ```bash
 python3 {baseDir}/scripts/mysearch_openclaw.py health
 ```
 
-### 普通网页搜索
+### General web search
 
 ```bash
-python3 {baseDir}/scripts/mysearch_openclaw.py search \
-  --query "best search MCP server" \
-  --mode web
+python3 {baseDir}/scripts/mysearch_openclaw.py search   --query "best search MCP server"   --mode web
 ```
 
-### 今天 X 上在热议什么
+### What is trending on X today?
 
 ```bash
-python3 {baseDir}/scripts/mysearch_openclaw.py search \
-  --query "today's biggest stories on X" \
-  --mode social \
-  --intent status
+python3 {baseDir}/scripts/mysearch_openclaw.py search   --query "today's biggest stories on X"   --mode social   --intent status
 ```
 
-规则：
+Rules:
 
-- 先 `social`
-- 不要先跑 `news`
-- 不要先混用 raw `web_search`
+- start with `social`
+- do not start with `news`
+- do not mix in raw `web_search` first
 
-### 今天 X 热议 + 网页新闻一起对照
+### Compare X trends with web news
 
-单次：
+Single call:
 
 ```bash
-python3 {baseDir}/scripts/mysearch_openclaw.py search \
-  --query "today's biggest stories on X" \
-  --sources web,x \
-  --intent status \
-  --strategy verify
+python3 {baseDir}/scripts/mysearch_openclaw.py search   --query "today's biggest stories on X"   --sources web,x   --intent status   --strategy verify
 ```
 
-或者双次：
+Or two separate calls:
 
 ```bash
 python3 {baseDir}/scripts/mysearch_openclaw.py search --query "..." --mode social --intent status
 python3 {baseDir}/scripts/mysearch_openclaw.py search --query "..." --mode news --intent status
 ```
 
-输出时必须区分：
+Your output must distinguish clearly between:
 
-- X 上在热议什么
-- 网页新闻在报道什么
-
-### 文档 / GitHub / pricing / changelog
-
-```bash
-python3 {baseDir}/scripts/mysearch_openclaw.py search \
-  --query "OpenAI responses API pricing" \
-  --mode docs \
-  --intent resource
-```
-
-### 抓正文
-
-```bash
-python3 {baseDir}/scripts/mysearch_openclaw.py extract \
-  --url "https://example.com/post"
-```
-
-### 小型研究包
-
-```bash
-python3 {baseDir}/scripts/mysearch_openclaw.py research \
-  --query "best search MCP server 2026" \
-  --intent exploratory \
-  --include-social
-```
-
-## 输出要求
-
-- 优先给结论，再给来源
-- 保留 URL
-- 区分事实、引文和推断
-- 同时包含网页和 X 时，明确分区，不要混成一句模糊总结
-- `max_results` 默认保持小一些，先拿 3 到 5 条
+- what is trending on X
+- what web news is reporting

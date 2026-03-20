@@ -12,7 +12,7 @@ from mysearch.config import MCPTransport, MySearchConfig
 
 
 def _ensure_list(value: str | list[str] | None) -> list[str] | None:
-    """兼容单值字符串输入，避免模型把单元素数组写成标量时直接校验失败。"""
+    """Accept a single string value so validation does not fail when a model sends a scalar instead of a one-element list."""
     if value is None:
         return None
     if isinstance(value, str):
@@ -23,7 +23,7 @@ def _ensure_list(value: str | list[str] | None) -> list[str] | None:
 def _ensure_sources(
     value: Literal["web", "x"] | list[Literal["web", "x"]] | None,
 ) -> list[Literal["web", "x"]] | None:
-    """兼容 sources 传单个字符串的情况。"""
+    """Accept a single string for `sources` as a compatibility fallback."""
     if value is None:
         return None
     if isinstance(value, str):
@@ -73,7 +73,7 @@ def build_mcp(config: MySearchConfig) -> tuple[MySearchClient, FastMCP]:
         include_x_images: bool = False,
         include_x_videos: bool = False,
     ) -> dict:
-        """统一搜索入口。按任务类型自动选择 Tavily / Firecrawl / Exa / xAI。"""
+        """Unified search entry point. Automatically chooses Tavily / Firecrawl / Exa / xAI by task type."""
         return client.search(
             query=query,
             mode=mode,
@@ -101,7 +101,7 @@ def build_mcp(config: MySearchConfig) -> tuple[MySearchClient, FastMCP]:
         only_main_content: bool = True,
         provider: Literal["auto", "firecrawl", "tavily"] = "auto",
     ) -> dict:
-        """抓取单个 URL 的正文，默认优先 Firecrawl；失败或空正文时回退 Tavily extract。"""
+        """Extract content from a single URL. Firecrawl is preferred by default; Tavily extract is used as a fallback if Firecrawl fails or returns empty content."""
         return client.extract_url(
             url=url,
             formats=_ensure_list(formats),
@@ -135,7 +135,7 @@ def build_mcp(config: MySearchConfig) -> tuple[MySearchClient, FastMCP]:
         from_date: str | None = None,
         to_date: str | None = None,
     ) -> dict:
-        """小型研究工作流：网页发现 + 正文抓取 + 可选 X 舆情补充。"""
+        """Lightweight research workflow: web discovery + content extraction + optional X / social augmentation."""
         return client.research(
             query=query,
             web_max_results=web_max_results,
@@ -155,7 +155,7 @@ def build_mcp(config: MySearchConfig) -> tuple[MySearchClient, FastMCP]:
 
     @mcp.tool()
     def mysearch_health() -> dict:
-        """查看 MySearch 当前 provider 配置、search mode、auth 模式、base URL 和 key 可用性。"""
+        """Inspect current MySearch provider configuration, search mode, auth mode, base URLs, and key availability."""
         return client.health()
 
     return client, mcp

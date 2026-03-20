@@ -1,6 +1,6 @@
 # MySearch OpenClaw Skill
 
-[中文说明](./README.md) · [Back to repo](../README_EN.md)
+[Back to repo](../README_EN.md)
 
 `openclaw/` is the bundled skill package for `OpenClaw` and `ClawHub`.
 

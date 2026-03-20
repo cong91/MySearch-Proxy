@@ -1,98 +1,74 @@
 # MySearch OpenClaw Skill
 
-[English Guide](./README_EN.md) · [返回仓库](../README.md)
+[Back to repo](../README_EN.md)
 
-`openclaw/` 是给 OpenClaw 和 ClawHub 准备的独立 skill bundle。
+`openclaw/` is the bundled skill package for `OpenClaw` and `ClawHub`.
 
-这一层和 `skill/` 的区别很明确：
+How it differs from `skill/`:
 
-- `skill/`
-  - 主要负责让 Codex / Claude Code 知道怎么安装与使用 MySearch
-- `openclaw/`
-  - 负责给 OpenClaw 提供真正可安装的 skill bundle
+- `skill/` mainly targets `Codex` / `Claude Code`
+- `openclaw/` targets `OpenClaw` / `ClawHub`
+- the runtime is bundled inside the skill package, so no remote runtime download is required during installation
 
-这个 bundle 自带 runtime，不需要再额外下载远端代码。
+The goal here is equally direct:
 
-## 适合什么时候用
+- make the OpenClaw install path obvious to humans
+- make the README plus SKILL enough for an AI assistant to install, configure, and verify the skill
 
-- 你想把 MySearch 装进 OpenClaw
-- 你想从 ClawHub 安装或更新
-- 你想在本地仓库里直接替换 skill
-- 你希望 OpenClaw 也走统一的 `proxy-first` 搜索链
+## If you are a user, the easiest way to use this
 
-公开页面：
+Send this to the AI:
 
-- ClawHub：
-  [clawhub.ai/skernelx/mysearch](https://clawhub.ai/skernelx/mysearch)
-
-## 当前推荐配置
-
-最推荐的是只给 skill 注入两项环境变量：
-
-```env
-MYSEARCH_PROXY_BASE_URL=https://your-mysearch-proxy.example.com
-MYSEARCH_PROXY_API_KEY=mysp-...
+```text
+Open openclaw/README_EN.md and openclaw/SKILL.md from this repository, install the MySearch OpenClaw skill for me, copy it into ~/.openclaw/skills/mysearch for local installation, configure the minimal OpenClaw skill env, run the health check, and tell me the result.
 ```
 
-这样做的好处：
+If you only want to share the GitHub link, you can also say:
 
-- Tavily / Firecrawl / Exa 默认共用同一个 token
-- 如果 Proxy 已接通 Social / X，也可以继续走同一套 token
-- OpenClaw 侧配置最少
-- 不需要把一堆 provider key 再散到 skill 里
-
-如果你暂时没有 Proxy，再回退到直连 provider：
-
-```env
-MYSEARCH_TAVILY_API_KEY=tvly-...
-MYSEARCH_FIRECRAWL_API_KEY=fc-...
-MYSEARCH_EXA_API_KEY=exa-...
-MYSEARCH_XAI_API_KEY=xai-...
+```text
+Please read https://github.com/skernelx/MySearch-Proxy/tree/main/openclaw and automatically install and verify the MySearch OpenClaw skill for me.
 ```
 
-## 安装方式
+## If you are an AI assistant, what to do after receiving this directory
 
-### 方式 A：从 ClawHub 安装
+### 1. Treat this as the OpenClaw skill installation entry
 
-如果你的环境已经接好了 ClawHub，这是最省心的方式。
+If the user gives you any of these:
 
-技能页面：
+- the repository URL
+- the `openclaw/` directory URL
+- a local `openclaw/` path
 
-- [clawhub.ai/skernelx/mysearch](https://clawhub.ai/skernelx/mysearch)
+default to using this folder as the onboarding entry for the MySearch OpenClaw skill.
 
-安装后重点不是改 bundle 文件，而是给 OpenClaw skill config 注入 env。
+### 2. Choose the installation path first
 
-`mysearch_openclaw.py` 现在会优先读取 OpenClaw 的 `openclaw.json` 里
-`skills.entries.mysearch.env`，所以正式部署不需要把 key 再复制进 skill 目录。
+Two common paths exist:
 
-推荐做法：
+- install from ClawHub
+- install from the local bundle
 
-- 在 OpenClaw 的 skill 配置里填 `MYSEARCH_PROXY_BASE_URL`
-- 再填 `MYSEARCH_PROXY_API_KEY`
-- 不要把 secret 明文写进仓库文件
+If the user explicitly says “install from Hub”, prefer the ClawHub route.
 
-### 方式 B：从本地仓库安装 bundle
+If the user is working in the local repository, replacing an old skill, or debugging a local deployment, prefer the local bundle route.
 
-如果你正在本地调试，或者就是想直接覆盖掉现有 skill，执行：
+### 3. Local bundle installation
+
+Copy the skill bundle first:
 
 ```bash
-bash openclaw/scripts/install_openclaw_skill.sh \
-  --install-to ~/.openclaw/skills/mysearch
+bash openclaw/scripts/install_openclaw_skill.sh --install-to ~/.openclaw/skills/mysearch
 ```
 
-这个脚本会：
+This script will:
 
-- 复制 `openclaw/` skill bundle
-- 保留 bundled runtime
-- 带上 `.env.example`
-- 不下载远端代码
-- 不修改其他 skill
+1. copy the `openclaw/` bundle into the target directory
+2. preserve the bundled runtime
+3. preserve `.env.example` as a local template
+4. avoid remote runtime downloads
+5. avoid modifying other installed skills
 
-## 推荐的 OpenClaw skill env 注入方式
-
-优先通过 OpenClaw 的 skill env 配置注入，不要把 secret 放进安装目录。
-
-推荐最小配置：
+After installation, prefer injecting the minimal config through OpenClaw skill env:
 
 ```json
 {
@@ -101,7 +77,7 @@ bash openclaw/scripts/install_openclaw_skill.sh \
       "mysearch": {
         "enabled": true,
         "env": {
-          "MYSEARCH_PROXY_BASE_URL": "https://your-mysearch-proxy.example.com",
+          "MYSEARCH_PROXY_BASE_URL": "https://search.hunters.works",
           "MYSEARCH_PROXY_API_KEY": "mysp-..."
         }
       }
@@ -110,31 +86,50 @@ bash openclaw/scripts/install_openclaw_skill.sh \
 }
 ```
 
-如果你确实在本地调试 bundle，也可以：
+With those two variables set, `Tavily / Firecrawl / Exa` will share the same proxy token by default. If your proxy also fronts `Social / X`, the same token continues to work there too.
+
+If you do not have a proxy yet, fall back to direct provider keys:
+
+```json
+{
+  "skills": {
+    "entries": {
+      "mysearch": {
+        "enabled": true,
+        "env": {
+          "MYSEARCH_TAVILY_API_KEY": "tvly-...",
+          "MYSEARCH_FIRECRAWL_API_KEY": "fc-..."
+        }
+      }
+    }
+  }
+}
+```
+
+Only for repository-local debugging should you copy the example env file:
 
 ```bash
 cp openclaw/.env.example openclaw/.env
+python3 openclaw/scripts/mysearch_openclaw.py health
 ```
 
-但这只建议用于本地调试，不建议作为正式部署方式。
+Only point `MYSEARCH_PROXY_BASE_URL` at a proxy host you trust.
 
-## 安装后怎么验收
+### 4. Verification after local installation
 
-优先跑健康检查：
+Run this first:
 
 ```bash
 python3 ~/.openclaw/skills/mysearch/scripts/mysearch_openclaw.py health
 ```
 
-再跑一轮搜索 smoke test：
+If the user wants a simple smoke test too, run:
 
 ```bash
 python3 ~/.openclaw/skills/mysearch/scripts/mysearch_openclaw.py search \
   --query "OpenAI latest announcements" \
   --mode web
 ```
-
-如果你要测文档搜索：
 
 ```bash
 python3 ~/.openclaw/skills/mysearch/scripts/mysearch_openclaw.py search \
@@ -143,7 +138,7 @@ python3 ~/.openclaw/skills/mysearch/scripts/mysearch_openclaw.py search \
   --intent resource
 ```
 
-如果你配置了 Social / X，再补：
+If X / Social is configured, add:
 
 ```bash
 python3 ~/.openclaw/skills/mysearch/scripts/mysearch_openclaw.py search \
@@ -152,110 +147,58 @@ python3 ~/.openclaw/skills/mysearch/scripts/mysearch_openclaw.py search \
   --intent status
 ```
 
-## 这个 skill 到底提供了什么
+## How to think about ClawHub installation
 
-OpenClaw 版 MySearch 本质上还是同一套能力，只是打成了 skill bundle：
+Public page:
 
-- `search`
-- `extract`
-- `research`
-- `health`
+- [clawhub.ai/skernelx/mysearch](https://clawhub.ai/skernelx/mysearch)
 
-默认理解方式：
-
-- `web / news`
-  - 优先 Tavily
-- `docs / github / pdf`
-  - 优先 Firecrawl
-- 普通网页补充发现
-  - 可回退 Exa
-- `social`
-  - 走 xAI 或兼容 `/social/search`
-
-## 版本与优化说明（v0.1.11）
-
-`mysearch@0.1.11` 已同步以下运行时优化：
-
-- 配置入口收口：
-  - runtime 现在会优先读取宿主配置里的 skill env，不再默认把 `.env` 当主入口。
-  - `mysearch_openclaw.py` 会优先读取 `openclaw.json` 中 `skills.entries.mysearch.env`。
-  - `.env` 仍可用，但只建议本地 bundle 调试时使用。
-  - 读取宿主配置时不再强依赖 Python 3.11 的 `tomllib`，Python 3.10 也能直接跑。
-
-- 文档结果质量：
-  - `docs / github / pdf / resource / tutorial` 的混合结果现在会优先官方文档域名与文档路径。
-  - 显式传 `include_domains` 时，命中域名的结果会更稳定地排在前面。
-  - `reddit / arxiv / researchgate / medium / youtube` 这类第三方页面会被后置，不再轻易抢前排。
-  - `citations` 会跟随重排后的结果顺序，避免正文结果和引用顺序打架。
-  - Firecrawl 若在 `site:` 域名约束查询下回空，会自动补一轮无 `site:` 的 Firecrawl 检索并在本地按域名过滤，减少 docs 查询被迫切到 Tavily 的概率。
-
-- Provider 健康与容错：
-  - `health` 现在会直接显示 provider 的 `live_status` 与 `live_error`，不再只报 `available_keys`。
-  - 若某个 provider 已配置但 key 实际失效，例如 `Tavily 401 deactivated`，wrapper 会明确显示 `auth_error`。
-  - docs / resource 路由和 Firecrawl 域名 fallback 会自动跳过处于 `auth_error` 的 Tavily，避免把“key 已失效”误判成“没配 provider”。
-
-- 路由稳定性：
-  - 显式指定 provider 时，不再被 balanced 策略自动混成 hybrid。
-- 抓取质量：
-  - `extract` 新增更多假正文识别。
-  - `auto` 模式可识别验证码页、GitHub blob 页面壳，并针对公开 GitHub blob 优先抓 raw 正文。
-- 社交结果一致性：
-  - 日期过滤后若没有命中，`results / citations / answer` 会保持一致。
-- Social / X fallback：
-  - `social/search` 支持主模型结果太少或上游失败时自动 fallback。
-  - 返回新增 `route` 字段，可直接查看主模型、fallback 模型和每轮尝试结果。
-
-- 并行执行：
-  - 混合检索与 `research` 分支支持并行调用，减少总耗时。
-- 缓存能力：
-  - `search` 与 `extract` 增加 TTL 缓存。
-- 可观测性：
-  - 返回中新增 `route_debug` 与 `cache` 字段，便于定位路由和命中行为。
-- 健康信息增强：
-  - `health` 返回新增 `runtime`、`routing_defaults`、`cache`。
-
-配套环境变量：
-
-```env
-MYSEARCH_MAX_PARALLEL_WORKERS=4
-MYSEARCH_SEARCH_CACHE_TTL_SECONDS=30
-MYSEARCH_EXTRACT_CACHE_TTL_SECONDS=300
-```
-
-注意：
-
-- 若通过 `mysearch_openclaw.py` 每次单独执行命令，属于一次一进程，缓存不会跨命令持久。
-- 在 OpenClaw 常驻会话中，缓存才会体现连续命中。
-
-## 安全建议
-
-这份 skill 的推荐安全边界很明确：
-
-- 优先通过 OpenClaw skill env 注入 secret
-- 不要把正式 token 复制进 skill 目录
-- 不要把 `MYSEARCH_PROXY_BASE_URL` 指向不可信主机
-- 如果你直连 provider，也尽量把 key 放到 OpenClaw 配置层，而不是 bundle 文件里
-
-`public.json` 里也保留了对应的公开安全说明，方便 ClawHub 校验和展示。
-
-## 本地调试入口
-
-如果你就在仓库里开发这份 skill，可以直接：
+If the user's environment already has `ClawHub` wired in, start with:
 
 ```bash
-cp openclaw/.env.example openclaw/.env
-python3 openclaw/scripts/mysearch_openclaw.py health
+clawhub search "mysearch"
+clawhub install <skill-slug>
 ```
 
-## 相关文档
+How env injection and enablement work after that depends on the user's current OpenClaw / ClawHub runtime setup.
 
-- 仓库总览：
-  [../README.md](../README.md)
-- MCP：
-  [../mysearch/README.md](../mysearch/README.md)
-- Proxy 控制台：
-  [../proxy/README.md](../proxy/README.md)
-- Codex / Claude Code skill：
-  [../skill/README.md](../skill/README.md)
-- OpenClaw skill 规则：
-  [./SKILL.md](./SKILL.md)
+If the user already has this repository locally and wants to replace an existing skill, do not force the Hub path. The local bundle route is usually more reliable.
+
+## Recommended provider path
+
+The preferred setup is still:
+
+- deploy `MySearch Proxy`
+- point the OpenClaw MySearch skill at:
+  - `MYSEARCH_PROXY_BASE_URL`
+  - `MYSEARCH_PROXY_API_KEY`
+
+If you do not have a unified proxy yet, you can still keep:
+
+- [skernelx/tavily-key-generator](https://github.com/skernelx/tavily-key-generator) as the Tavily / Firecrawl provider layer
+- direct provider keys inside the OpenClaw skill env
+
+If the user does not have X / Social:
+
+- do not treat the skill as broken
+- `web / news / docs / extract / research` still work
+
+## How the AI should use it after OpenClaw installation
+
+Preferred order:
+
+1. run `health`
+2. use MySearch as the default path for external search
+3. use `extract` when page content is needed
+4. use `research` for lightweight research packs
+5. only fall back to the old Tavily-only skill or raw `web_search` if MySearch is not configured or the user explicitly asks for another tool
+
+For the full behavior rules, see:
+
+- [SKILL.md](./SKILL.md)
+
+## Related docs
+
+- Repository overview: [../README_EN.md](../README_EN.md)
+- MCP docs: [../mysearch/README_EN.md](../mysearch/README_EN.md)
+- Codex / Claude Code skill: [../skill/README_EN.md](../skill/README_EN.md)

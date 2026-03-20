@@ -1,4 +1,4 @@
-"""MySearch 通用 key ring。"""
+"""Shared key ring for MySearch."""
 
 from __future__ import annotations
 

@@ -1,227 +1,165 @@
 # MySearch
 
-[English Guide](./README_EN.md) · [返回仓库](../README.md)
+[Back to repo](../README_EN.md)
 
-`mysearch/` 是这个仓库里真正可安装的 MCP 服务。
+`MySearch` is the installable search MCP inside this repository.
 
-它负责把 Tavily、Firecrawl、Exa 和可选 X / Social 收成一个统一搜索入口，
-并暴露给 Codex、Claude Code 或其他支持 MCP 的客户端。
+It is not a thin wrapper around one provider. It turns `Tavily`,
+`Firecrawl`, and optional `X / Social` into one search runtime and combines
+search, extraction, and lightweight research in the same toolset.
 
-如果你只想先把搜索能力装到本机 AI 助手里，优先看这一份文档。
+## What this MCP is for
 
-## 提供的工具
+`mysearch/` is responsible for:
+
+- a unified `search` entry
+- single-page extraction via `extract_url`
+- lightweight research flows via `research`
+- provider and config checks via `mysearch_health`
+
+It is a good fit for:
+
+- `Codex`
+- `Claude Code`
+- other local assistants that support MCP
+
+If you only need a stronger search MCP, this directory is enough.
+
+If you also need pooled keys, downstream tokens, quota sync, and a social
+gateway UI, see [../proxy/README_EN.md](../proxy/README_EN.md).
+
+## Transports
+
+`MySearch MCP` now supports:
+
+- `stdio`
+  - default mode
+  - best for local `Codex` / `Claude Code`
+- `streamableHTTP`
+  - best for remote sharing, reverse proxies, and team gateways
+- `sse`
+  - supported by the underlying library, but this project mainly recommends
+    `stdio + streamableHTTP`
+
+The default installer still registers `stdio`, so existing local usage does
+not change.
+
+## Why it is more complete than typical search MCPs
+
+### 1. It is not single-source
+
+Default routing:
+
+- general web, news, discovery -> Tavily
+- docs, GitHub, PDFs, pricing, changelogs -> Firecrawl
+- X / Social -> xAI or compatible `/social/search`
+
+### 2. It extracts content instead of only searching
+
+- `extract_url` prefers Firecrawl
+- if Firecrawl fails or returns empty content, it falls back to Tavily extract
+
+So content extraction is a first-class feature, not an afterthought.
+
+### 3. It is a real MCP runtime, not just a prompt
+
+You install an MCP with tools and routing, instead of stuffing search behavior
+into a long prompt.
+
+### 4. It is not locked to official APIs
+
+You can:
+
+- connect to official providers directly
+- route Tavily / Firecrawl through your own gateway
+- route X / Social through compatible `/social/search`
+- fine-tune auth with `BASE_URL + PATH + AUTH_*`
+
+### 5. X / Social is optional
+
+Without `xAI` or `grok2api`, these still work:
+
+- `web`
+- `news`
+- `docs`
+- `github`
+- `pdf`
+- `extract`
+- `research`
+
+Only explicit social routes become unavailable.
+
+## Recommended upstream
+
+The default recommendation is not to spread official keys across every client.
+The recommended shape is:
+
+```text
+tavily-key-generator
+  -> provides Tavily / Firecrawl official provider access or aggregation APIs
+
+MySearch MCP
+  -> only handles routing, tool exposure, and output shaping
+```
+
+Recommended project:
+
+- [skernelx/tavily-key-generator](https://github.com/skernelx/tavily-key-generator)
+
+Why this is the preferred setup:
+
+- MySearch does not need to manage Tavily / Firecrawl upstream operations
+- you can point clients at one normalized gateway instead of copying official
+  keys around
+
+If you already have official keys, direct official mode still works.
+
+## Tool list
 
 ### `search`
 
-统一搜索入口。
+Unified search entry.
 
-支持的模式：
+Common modes:
 
 - `auto`
 - `web`
 - `news`
 - `social`
 - `docs`
-- `research`
 - `github`
 - `pdf`
+- `research`
 
 ### `extract_url`
 
-抓取单个页面正文。
+Single-page content extraction.
 
-默认行为：
+Default behavior:
 
-- 优先 Firecrawl
-- Firecrawl 失败或正文为空时回退 Tavily extract
+- Firecrawl first
+- Tavily extract fallback when Firecrawl fails or returns empty content
 
 ### `research`
 
-小型研究工作流。
+Lightweight research workflow.
 
-默认流程：
+Useful for:
 
-- 先做网页发现
-- 再抓取前几条正文
-- 可选补充 X / Social 讨论
+- comparisons
+- trends
+- questions that need search plus extraction plus evidence packaging
 
 ### `mysearch_health`
 
-返回当前 provider 配置、base URL、search mode、auth mode 和 key 可用性。
+Returns provider state, base URLs, key availability, and config summary.
 
-## 当前推荐接法
+## Intent and Strategy
 
-最推荐的是 `proxy-first`：
-
-```env
-MYSEARCH_PROXY_BASE_URL=https://your-mysearch-proxy.example.com
-MYSEARCH_PROXY_API_KEY=mysp-...
-```
-
-好处：
-
-- Tavily / Firecrawl / Exa 默认一起走统一 proxy
-- 如果 proxy 同时接通了 Social / X，同一个 token 还能继续复用
-- 客户端配置最少
-- 更适合团队共享和公开部署
-
-如果你还没有 Proxy，也可以直接连 provider。
-
-## 直连 provider 的最小配置
-
-最小直连通常至少需要：
-
-```env
-MYSEARCH_TAVILY_API_KEY=tvly-...
-MYSEARCH_FIRECRAWL_API_KEY=fc-...
-```
-
-如果你也要接 Exa：
-
-```env
-MYSEARCH_EXA_API_KEY=exa-...
-```
-
-如果你也要接 X / Social：
-
-```env
-MYSEARCH_XAI_API_KEY=xai-...
-```
-
-没有 X / Social 时，下面这些仍然可用：
-
-- `web`
-- `news`
-- `docs`
-- `github`
-- `pdf`
-- `extract_url`
-- `research`
-
-## 安装到 Codex / Claude Code
-
-在仓库根目录执行：
-
-```bash
-python3 -m venv venv
-```
-
-优先把配置放进宿主 config，而不是先复制 `.env`：
-
-- `Codex`：`~/.codex/config.toml` 的 `mcp_servers.mysearch.env`
-- `Claude Code`：注册 MCP 时直接把 `MYSEARCH_*` 注入 env
-- `mysearch/.env`：只建议本地单仓调试时使用
-
-填好配置后安装：
-
-```bash
-./install.sh
-```
-
-`install.sh` 会做两件事：
-
-- 安装 `mysearch/requirements.txt`
-- 如果本机有 `codex` 或 `claude` 命令，就自动注册 `mysearch` MCP
-- 如果宿主已有 `mysearch` config，会直接复用其中的 `MYSEARCH_*`
-
-## 推荐验收
-
-### 1. 看 MCP 是否注册成功
-
-```bash
-codex mcp get mysearch
-```
-
-或者：
-
-```bash
-claude mcp list
-```
-
-### 2. 跑健康检查
-
-```bash
-python3 skill/scripts/check_mysearch.py --health-only
-```
-
-### 3. 跑一轮 smoke test
-
-```bash
-python3 skill/scripts/check_mysearch.py --web-query "OpenAI latest announcements"
-python3 skill/scripts/check_mysearch.py --docs-query "OpenAI Responses API docs"
-```
-
-如果你配置了 Social / X，再补：
-
-```bash
-python3 skill/scripts/check_mysearch.py --social-query "Model Context Protocol"
-```
-
-如果你要测正文抓取：
-
-```bash
-python3 skill/scripts/check_mysearch.py \
-  --extract-url "https://www.anthropic.com/news/model-context-protocol"
-```
-
-## 作为 HTTP MCP 单独启动
-
-默认注册给 Codex / Claude Code 时，`MySearch` 走的是 `stdio`。
-
-如果你想把它作为远程 MCP 暴露出来，可以直接启动：
-
-```bash
-python -m mysearch --transport streamable-http --host 127.0.0.1 --port 8000
-```
-
-默认 endpoint：
-
-- `streamableHTTP`
-  - `http://127.0.0.1:8000/mcp`
-- `SSE`
-  - `http://127.0.0.1:8000/sse`
-
-如果你已经有远程 URL，也可以直接注册到 Codex：
-
-```bash
-codex mcp add mysearch --url https://your-mysearch.example.com/mcp
-codex mcp get mysearch
-```
-
-需要 Bearer Token 时：
-
-```bash
-export MYSEARCH_MCP_BEARER_TOKEN=your-token
-codex mcp add mysearch \
-  --url https://your-mysearch.example.com/mcp \
-  --bearer-token-env-var MYSEARCH_MCP_BEARER_TOKEN
-```
-
-## 路由逻辑怎么理解
-
-MySearch 不是单一 provider 的壳。
-
-默认可以这样理解：
-
-- `web / news`
-  - 优先 Tavily
-- `docs / github / pdf`
-  - 优先 Firecrawl
-- 补充网页发现
-  - 可回退 Exa
-- `social`
-  - 走 xAI 或 compatible `/social/search`
-- `extract_url`
-  - Firecrawl 优先，Tavily 回退
-- `research`
-  - 搜索 + 抓取 + 可选 social 补充
-
-## Intent 和 Strategy
-
-`search` 与 `research` 同时支持：
+`MySearch` separates "what are you looking for" from "how hard should it
+search":
 
 - `intent`
-  - `auto`
   - `factual`
   - `status`
   - `comparison`
@@ -230,99 +168,334 @@ MySearch 不是单一 provider 的壳。
   - `news`
   - `resource`
 - `strategy`
-  - `auto`
   - `fast`
   - `balanced`
   - `verify`
   - `deep`
 
-适合记忆的简单规则：
+Default tendencies:
 
-- 想快一点：
-  - `fast`
-- 想稳一点：
-  - `balanced`
-- 想多做交叉验证：
-  - `verify`
-- 想做小研究：
-  - `deep`
+- `comparison` / `exploratory` lean toward `verify`
+- `docs` / `resource` / `tutorial` lean toward `balanced`
+- `research` leans toward `deep`
 
-## 关键环境变量
+## Provider coverage and degraded behavior
 
-优先关注这几组：
+### Tavily
 
-### 通用
+Handles:
 
-```env
-MYSEARCH_NAME=MySearch
-MYSEARCH_TIMEOUT_SECONDS=45
+- general web
+- news
+- default research discovery
+
+If Tavily is unavailable:
+
+- `web / news / default research`
+
+become weaker, but Firecrawl can still cover docs and some extraction work.
+
+### Firecrawl
+
+Handles:
+
+- docs
+- GitHub
+- PDFs
+- pricing
+- changelogs
+- content extraction
+
+If Firecrawl is unavailable:
+
+- docs-focused retrieval gets worse
+- `extract_url` falls back to Tavily extract where possible
+
+### X / Social
+
+Handles:
+
+- X / Social search
+- sentiment and conversations
+
+If X / Social is unavailable:
+
+- `search(mode="social")` returns a clear setup hint
+- `research(include_social=true)` still returns web evidence and adds
+  `social_error`
+
+## Installation
+
+Run these commands from the repository root:
+
+```bash
+python3 -m venv venv
+cp mysearch/.env.example mysearch/.env
+./install.sh
 ```
 
-### Proxy-first
+Minimal usable config:
 
 ```env
-MYSEARCH_PROXY_BASE_URL=
-MYSEARCH_PROXY_API_KEY=
+MYSEARCH_TAVILY_API_KEY=tvly-...
+MYSEARCH_FIRECRAWL_API_KEY=fc-...
 ```
 
-### 运行时优化参数（v0.1.5+）
+The more reusable public deployment pattern is to point MySearch at
+[skernelx/tavily-key-generator](https://github.com/skernelx/tavily-key-generator)
+instead:
 
 ```env
-MYSEARCH_MAX_PARALLEL_WORKERS=4
-MYSEARCH_SEARCH_CACHE_TTL_SECONDS=30
-MYSEARCH_EXTRACT_CACHE_TTL_SECONDS=300
+MYSEARCH_TAVILY_BASE_URL=https://your-search-gateway.example.com
+MYSEARCH_TAVILY_SEARCH_PATH=/api/search
+MYSEARCH_TAVILY_EXTRACT_PATH=/api/extract
+MYSEARCH_TAVILY_AUTH_MODE=bearer
+MYSEARCH_TAVILY_API_KEY=your-token
+
+MYSEARCH_FIRECRAWL_BASE_URL=https://your-search-gateway.example.com
+MYSEARCH_FIRECRAWL_SEARCH_PATH=/firecrawl/v2/search
+MYSEARCH_FIRECRAWL_SCRAPE_PATH=/firecrawl/v2/scrape
+MYSEARCH_FIRECRAWL_AUTH_MODE=bearer
+MYSEARCH_FIRECRAWL_API_KEY=your-token
 ```
 
-含义：
+The root `install.sh` will:
 
-- `MYSEARCH_MAX_PARALLEL_WORKERS`
-  - 控制混合查询与 `research` 中并行请求的工作线程数。
-- `MYSEARCH_SEARCH_CACHE_TTL_SECONDS`
-  - 控制 `search` 缓存生存时间。
-- `MYSEARCH_EXTRACT_CACHE_TTL_SECONDS`
-  - 控制 `extract_url` 缓存生存时间。
+1. install dependencies
+2. detect `Claude Code`
+3. detect `Codex`
+4. register the `mysearch` MCP
+5. inject `MYSEARCH_*` values from `mysearch/.env`
 
-返回结构的新增字段：
+### Start a streamableHTTP endpoint
 
-- `route_debug`
-  - 展示路由决策、解析后的 sources、cache 命中状态等调试信息。
-- `cache`
-  - 展示当前请求是否命中缓存与 TTL。
+If you want to expose `MySearch` as a remote MCP instead of local `stdio`,
+run:
 
-`mysearch_health` 新增：
+```bash
+./venv/bin/python -m mysearch \
+  --transport streamable-http \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --streamable-http-path /mcp
+```
 
-- `runtime`
-- `routing_defaults`
-- `cache`
+Default endpoint:
 
-### MCP 传输配置
+```text
+http://127.0.0.1:8000/mcp
+```
+
+This is different from the default local `stdio` install path:
+
+- local `stdio`
+  - use `./install.sh`
+  - best when `Codex` / `Claude Code` launches MySearch on the same machine
+- remote `streamableHTTP`
+  - use `python -m mysearch --transport streamable-http ...`
+  - best when MySearch runs on a server for shared clients
+
+If you want `Codex` to connect to that remote endpoint, this is already tested:
+
+```bash
+codex mcp add mysearch --url http://127.0.0.1:8000/mcp
+codex mcp get mysearch
+```
+
+If the remote endpoint requires a bearer token:
+
+```bash
+export MYSEARCH_MCP_BEARER_TOKEN=your-token
+codex mcp add mysearch \
+  --url https://mysearch.example.com/mcp \
+  --bearer-token-env-var MYSEARCH_MCP_BEARER_TOKEN
+codex mcp get mysearch
+```
+
+You can also configure the HTTP listener via `mysearch/.env`:
 
 ```env
 MYSEARCH_MCP_HOST=127.0.0.1
 MYSEARCH_MCP_PORT=8000
-MYSEARCH_MCP_MOUNT_PATH=/
-MYSEARCH_MCP_SSE_PATH=/sse
 MYSEARCH_MCP_STREAMABLE_HTTP_PATH=/mcp
 MYSEARCH_MCP_STATELESS_HTTP=false
 ```
 
-### 直连 provider
+Notes:
 
-可分别配置：
+- `./install.sh` still registers the local `stdio` MCP
+- `python -m mysearch --transport streamable-http ...` is an additional
+  remote entry point
+- both can coexist without conflict
+- the `openclaw/` skill bundle does not require this remote HTTP endpoint
 
-- `MYSEARCH_TAVILY_*`
-- `MYSEARCH_FIRECRAWL_*`
-- `MYSEARCH_EXA_*`
-- `MYSEARCH_XAI_*`
+## X / Social configuration
 
-完整示例见：
-[.env.example](./.env.example)
+### Official xAI mode
 
-## 什么时候该看别的文档
+```env
+MYSEARCH_XAI_BASE_URL=https://api.x.ai/v1
+MYSEARCH_XAI_RESPONSES_PATH=/responses
+MYSEARCH_XAI_SEARCH_MODE=official
+MYSEARCH_XAI_API_KEY=xai-...
+```
 
-- 你要部署控制台和 token 管理：
-  看 [../proxy/README.md](../proxy/README.md)
-- 你要让 AI 自动理解怎么安装：
-  看 [../skill/README.md](../skill/README.md)
-- 你要装到 OpenClaw：
-  看 [../openclaw/README.md](../openclaw/README.md)
+### Compatible mode
+
+```env
+MYSEARCH_XAI_BASE_URL=https://media.example.com/v1
+MYSEARCH_XAI_SOCIAL_BASE_URL=https://your-social-gateway.example.com
+MYSEARCH_XAI_SEARCH_MODE=compatible
+MYSEARCH_XAI_API_KEY=your-social-gateway-token
+```
+
+Behavior:
+
+- `MYSEARCH_XAI_BASE_URL` points to the model or `/responses` gateway
+- `MYSEARCH_XAI_SOCIAL_BASE_URL` points to the social gateway root
+- MySearch appends `/social/search` automatically
+
+If you do not have `grok2api` or an official `xAI` key yet, you can leave the
+entire X section unset and still use MySearch as a `Tavily + Firecrawl` MCP.
+
+## Integrated social gateway
+
+Reference implementation:
+
+- module: `mysearch.social_gateway`
+- purpose: normalize xAI-compatible `/responses` output into a stable social
+  search schema
+
+Minimal config:
+
+```env
+SOCIAL_GATEWAY_UPSTREAM_BASE_URL=https://media.example.com/v1
+SOCIAL_GATEWAY_UPSTREAM_RESPONSES_PATH=/responses
+SOCIAL_GATEWAY_UPSTREAM_API_KEY=your-upstream-key
+SOCIAL_GATEWAY_MODEL=grok-4.1-fast
+SOCIAL_GATEWAY_TOKEN=your-social-gateway-token
+```
+
+Start it with:
+
+```bash
+../venv/bin/python -m mysearch.social_gateway
+```
+
+or:
+
+```bash
+uvicorn mysearch.social_gateway:app --host 127.0.0.1 --port 9875
+```
+
+## Quick verification
+
+Check MCP registration:
+
+```bash
+claude mcp list
+codex mcp list
+codex mcp get mysearch
+```
+
+Health check:
+
+```bash
+python skill/scripts/check_mysearch.py --health-only
+```
+
+Web and docs smoke tests:
+
+```bash
+python skill/scripts/check_mysearch.py --web-query "OpenAI latest announcements"
+python skill/scripts/check_mysearch.py --docs-query "OpenAI Responses API docs"
+```
+
+If X / Social is configured:
+
+```bash
+python skill/scripts/check_mysearch.py --social-query "Model Context Protocol"
+```
+
+Extraction smoke test:
+
+```bash
+python skill/scripts/check_mysearch.py \
+  --extract-url "https://www.anthropic.com/news/model-context-protocol"
+```
+
+## Example calls
+
+General web search:
+
+```json
+{
+  "tool": "search",
+  "arguments": {
+    "query": "best search MCP server",
+    "mode": "web"
+  }
+}
+```
+
+X / Social:
+
+```json
+{
+  "tool": "search",
+  "arguments": {
+    "query": "what are people saying about MCP",
+    "mode": "social",
+    "max_results": 5
+  }
+}
+```
+
+Comparison-style query:
+
+```json
+{
+  "tool": "search",
+  "arguments": {
+    "query": "Tavily vs Firecrawl for docs search",
+    "intent": "comparison",
+    "strategy": "verify",
+    "max_results": 6
+  }
+}
+```
+
+Extract page content:
+
+```json
+{
+  "tool": "extract_url",
+  "arguments": {
+    "url": "https://example.com/post",
+    "formats": ["markdown"]
+  }
+}
+```
+
+Research flow:
+
+```json
+{
+  "tool": "research",
+  "arguments": {
+    "query": "best search MCP server 2026",
+    "intent": "exploratory",
+    "include_social": true,
+    "scrape_top_n": 3
+  }
+}
+```
+
+## Related docs
+
+- Repository overview:
+  [../README_EN.md](../README_EN.md)
+- Proxy console:
+  [../proxy/README_EN.md](../proxy/README_EN.md)
+- Architecture:
+  [../docs/mysearch-architecture.md](../docs/mysearch-architecture.md)

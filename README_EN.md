@@ -1,6 +1,6 @@
 # MySearch Proxy
 
-[中文说明](./README.md)
+
 
 `MySearch Proxy` is a public-facing search stack for `Codex`, `Claude Code`,
 `OpenClaw`, and custom agent workflows.
